@@ -76,6 +76,7 @@ struct qcom_reset_map {
 
 struct qcom_power_map {
 	unsigned int reg;
+	bool poll_gdscr;
 };
 
 struct clk;

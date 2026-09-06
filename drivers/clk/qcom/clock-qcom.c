@@ -505,9 +505,9 @@ U_BOOT_DRIVER(qcom_reset) = {
 static int qcom_power_set(struct power_domain *pwr, bool on)
 {
 	struct msm_clk_data *data = (struct msm_clk_data *)dev_get_driver_data(pwr->dev);
-	void __iomem *base = dev_get_priv(pwr->dev);
+	void __iomem *base = dev_get_priv(pwr->dev), *poll_addr;
 	const struct qcom_power_map *map;
-	u32 value;
+	u32 value, mask;
 	int ret;
 
 	if (pwr->id >= data->num_power_domains)
@@ -527,19 +527,21 @@ static int qcom_power_set(struct power_domain *pwr, bool on)
 
 	writel(value, base + map->reg);
 
-	if (on)
-		ret = readl_poll_timeout(base + map->reg + CFG_GDSCR_OFFSET,
+	poll_addr = base + map->reg;
+	if (map->poll_gdscr) {
+		/* Some SOCs such as MSM8917 poll at GDSCR */
+		ret = readl_poll_timeout(poll_addr,
 					 value,
-					 (value & GDSC_POWER_UP_COMPLETE) ||
-					 (value & GDSC_PWR_ON_MASK),
+					 (!!(value & GDSC_PWR_ON_MASK) == on),
 					 GDSC_STATUS_POLL_TIMEOUT_US);
-
-	else
-		ret = readl_poll_timeout(base + map->reg + CFG_GDSCR_OFFSET,
+	} else {
+		mask = on ? GDSC_POWER_UP_COMPLETE : GDSC_POWER_DOWN_COMPLETE;
+		ret = readl_poll_timeout(poll_addr + CFG_GDSCR_OFFSET,
 					 value,
-					 (value & GDSC_POWER_DOWN_COMPLETE) ||
-					 !(value & GDSC_PWR_ON_MASK),
+					 (value & mask) ||
+					 !!(value & GDSC_PWR_ON_MASK) == on,
 					 GDSC_STATUS_POLL_TIMEOUT_US);
+	}
 
 	if (ret == -ETIMEDOUT)
 		printf("WARNING: GDSC %lu is stuck during power on/off\n",
