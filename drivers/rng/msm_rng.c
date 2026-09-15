@@ -114,12 +114,12 @@ static int msm_rng_probe(struct udevice *dev)
 	if (priv->base == FDT_ADDR_T_NONE)
 		return -EINVAL;
 
+	ret = clk_get_by_index(dev, 0, &priv->clk);
+	if (ret && ret != -ENOENT)
+		return ret;
+
 	if (priv->skip_init)
 		return 0;
-
-	ret = clk_get_by_index(dev, 0, &priv->clk);
-	if (ret)
-		return ret;
 
 	ret = clk_enable(&priv->clk);
 	if (ret < 0)
