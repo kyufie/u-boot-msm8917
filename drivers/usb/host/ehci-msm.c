@@ -25,6 +25,7 @@ struct msm_ehci_priv {
 	struct ehci_ctrl ctrl; /* Needed by EHCI */
 	struct usb_ehci *ehci; /* Start of IP core*/
 	struct phy phy;
+	bool ext_vbus_sess_vld;
 };
 
 struct qcom_ci_hdrc_priv {
@@ -69,6 +70,9 @@ static int ehci_usb_probe(struct udevice *dev)
 	if (ret < 0)
 		return ret;
 
+	if (dev_read_prop(dev, "extcon", NULL))
+		p->ext_vbus_sess_vld = true;
+
 	return ehci_register(dev, hccr, hcor, &msm_ehci_ops, 0,
 			     plat->init_type);
 }
@@ -105,6 +109,9 @@ static int ehci_usb_of_to_plat(struct udevice *dev)
 	return 0;
 }
 
+#define GEN2_SESS_VLD_CTRL_EN		BIT(7)
+#define SESS_VLD_CTRL			BIT(25)
+
 #if defined(CONFIG_CI_UDC)
 /* Little quirk that MSM needs with Chipidea controller
  * Must reinit phy after reset
@@ -114,6 +121,14 @@ void ci_init_after_reset(struct ehci_ctrl *ctrl)
 	struct msm_ehci_priv *p = ctrl->priv;
 
 	generic_phy_reset(&p->phy);
+
+	if (p->ext_vbus_sess_vld) {
+		/* Enable sess_vld */
+		setbits_le32(&p->ehci->genconfig2, GEN2_SESS_VLD_CTRL_EN);
+
+		/* Enable external vbus configuration in the LINK */
+		setbits_le32(&p->ehci->usbcmd, SESS_VLD_CTRL);
+	}
 }
 #endif
 
