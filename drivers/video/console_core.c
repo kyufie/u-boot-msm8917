@@ -50,6 +50,8 @@ int check_bpix_support(int bpix)
 		return 0;
 	else if (bpix == VIDEO_BPP16 && CONFIG_IS_ENABLED(VIDEO_BPP16))
 		return 0;
+	else if (bpix == VIDEO_BPP24 && CONFIG_IS_ENABLED(VIDEO_BPP24))
+		return 0;
 	else if (bpix == VIDEO_BPP32 && CONFIG_IS_ENABLED(VIDEO_BPP32))
 		return 0;
 	else
@@ -72,6 +74,8 @@ inline void fill_pixel_and_goto_next(void **dstp, u32 value, int pbytes, int ste
 		u8 *dst = *dstp;
 		*dst = value;
 	}
+	if (pbytes == 3)
+		video_set_pixel24(dst_byte, value);
 	*dstp = dst_byte + step;
 }
 

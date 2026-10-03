@@ -73,13 +73,11 @@ static void write_pix8(u8 *fb, uint bpix, enum video_format eformat,
 	} else if (bpix == 16) {
 		*(u16 *)fb = get_bmp_col_16bpp(palette[*bmap]);
 	} else {
-		/* Only support big endian */
 		struct bmp_color_table_entry *cte = &palette[*bmap];
 
 		if (bpix == 24) {
-			*fb++ = cte->red;
-			*fb++ = cte->green;
-			*fb++ = cte->blue;
+			video_set_pixel24(fb, (cte->red << 16) |
+					  (cte->green << 8) | cte->blue);
 		} else if (eformat == VIDEO_X2R10G10B10) {
 			*(u32 *)fb = get_bmp_col_x2r10g10b10(cte);
 		} else if (eformat == VIDEO_RGBA8888) {
@@ -270,7 +268,7 @@ int video_bmp_display(struct udevice *dev, ulong bmp_image, int x, int y,
 	uchar *start, *fb;
 	struct bmp_image *bmp = map_sysmem(bmp_image, 0);
 	uchar *bmap;
-	ushort padded_width;
+	ulong bmp_stride;
 	unsigned long width, height, byte_width;
 	unsigned long pwidth = priv->xsize;
 	unsigned colours, bpix, bmp_bpix;
@@ -287,16 +285,17 @@ int video_bmp_display(struct udevice *dev, ulong bmp_image, int x, int y,
 	}
 
 	video_bmp_get_info(bmp, &width, &height, &bmp_bpix);
+	bmp_stride = ALIGN(width * DIV_ROUND_UP(bmp_bpix, 8), 4);
 	hdr_size = get_unaligned_le16(&bmp->header.size);
 	debug("hdr_size=%d, bmp_bpix=%d\n", hdr_size, bmp_bpix);
 	palette = (void *)bmp + 14 + hdr_size;
 
-	colours = 1 << bmp_bpix;
+	colours = bmp_bpix < 32 ? 1U << bmp_bpix : 0;
 
 	bpix = VNBITS(priv->bpix);
 	eformat = priv->format;
 
-	if (bpix != 1 && bpix != 8 && bpix != 16 && bpix != 32) {
+	if (bpix != 1 && bpix != 8 && bpix != 16 && bpix != 24 && bpix != 32) {
 		printf("Error: %d bit/pixel mode, but BMP has %d bit/pixel\n",
 		       bpix, bmp_bpix);
 
@@ -312,16 +311,16 @@ int video_bmp_display(struct udevice *dev, ulong bmp_image, int x, int y,
 	    !(bmp_bpix == 8 && bpix == 24) &&
 	    !(bmp_bpix == 8 && bpix == 32) &&
 	    !(bmp_bpix == 24 && bpix == 16) &&
-	    !(bmp_bpix == 24 && bpix == 32)) {
+	    !(bmp_bpix == 24 && bpix == 24) &&
+	    !(bmp_bpix == 24 && bpix == 32) &&
+	    !(bmp_bpix == 32 && bpix == 24)) {
 		printf("Error: %d bit/pixel mode, but BMP has %d bit/pixel\n",
 		       bpix, colours);
 		return -EPERM;
 	}
 
 	debug("Display-bmp: %d x %d  with %d colours, display %d\n",
-	      (int)width, (int)height, (int)colours, 1 << bpix);
-
-	padded_width = (width & 0x3 ? (width & ~0x3) + 4 : width);
+	      (int)width, (int)height, (int)colours, bpix);
 
 	if (align) {
 		video_splash_align_axis(&x, priv->xsize, width);
@@ -369,7 +368,7 @@ int video_bmp_display(struct udevice *dev, ulong bmp_image, int x, int y,
 				bmap++;
 				fb += bpix / 8;
 			}
-			bmap += (padded_width - width);
+			bmap += bmp_stride - width;
 			fb -= byte_width + priv->line_length;
 		}
 		break;
@@ -381,7 +380,7 @@ int video_bmp_display(struct udevice *dev, ulong bmp_image, int x, int y,
 					*fb++ = *bmap++;
 					*fb++ = *bmap++;
 				}
-				bmap += (padded_width - width);
+				bmap += bmp_stride - width * 2;
 				fb -= width * 2 + priv->line_length;
 			}
 		}
@@ -398,6 +397,11 @@ int video_bmp_display(struct udevice *dev, ulong bmp_image, int x, int y,
 							(bmap[0] >> 3);
 						bmap += 3;
 						fb += 2;
+					} else if (bpix == 24) {
+						video_set_pixel24(fb, (bmap[2] << 16) |
+								  (bmap[1] << 8) | bmap[0]);
+						bmap += 3;
+						fb += 3;
 					} else if (eformat == VIDEO_X2R10G10B10) {
 						u32 pix;
 
@@ -427,7 +431,7 @@ int video_bmp_display(struct udevice *dev, ulong bmp_image, int x, int y,
 					}
 				}
 				fb -= priv->line_length + width * (bpix / 8);
-				bmap += (padded_width - width);
+				bmap += bmp_stride - width * 3;
 			}
 		}
 		break;
@@ -435,7 +439,12 @@ int video_bmp_display(struct udevice *dev, ulong bmp_image, int x, int y,
 		if (CONFIG_IS_ENABLED(BMP_32BPP)) {
 			for (i = 0; i < height; ++i) {
 				for (j = 0; j < width; j++) {
-					if (eformat == VIDEO_X2R10G10B10) {
+					if (bpix == 24) {
+						video_set_pixel24(fb, (bmap[2] << 16) |
+								  (bmap[1] << 8) | bmap[0]);
+						bmap += 4;
+						fb += 3;
+					} else if (eformat == VIDEO_X2R10G10B10) {
 						u32 pix;
 
 						pix = *bmap++ << 2U;
@@ -465,6 +474,7 @@ int video_bmp_display(struct udevice *dev, ulong bmp_image, int x, int y,
 					}
 				}
 				fb -= priv->line_length + width * (bpix / 8);
+				bmap += bmp_stride - width * 4;
 			}
 		}
 		break;

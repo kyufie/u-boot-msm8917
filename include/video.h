@@ -45,8 +45,9 @@ enum video_polarity {
 };
 
 /*
- * Bits per pixel selector. Each value n is such that the bits-per-pixel is
- * 2 ^ n
+ * Bits per pixel selector. Most values encode log2(bits-per-pixel), but 24bpp
+ * cannot be represented that way.  Use VNBITS() and VNBYTES(), rather than
+ * doing arithmetic on the selector.
  */
 enum video_log2_bpp {
 	VIDEO_BPP1	= 0,
@@ -55,11 +56,12 @@ enum video_log2_bpp {
 	VIDEO_BPP8,
 	VIDEO_BPP16,
 	VIDEO_BPP32,
+	VIDEO_BPP24,
 };
 
 /* Convert enum video_log2_bpp to bytes and bits */
-#define VNBYTES(bpix)	((1 << (bpix)) / 8)
-#define VNBITS(bpix)	(1 << (bpix))
+#define VNBITS(bpix)	((bpix) == VIDEO_BPP24 ? 24 : (1 << (bpix)))
+#define VNBYTES(bpix)	(VNBITS(bpix) / 8)
 
 enum video_format {
 	VIDEO_UNKNOWN,
@@ -67,7 +69,24 @@ enum video_format {
 	VIDEO_X8B8G8R8,
 	VIDEO_X8R8G8B8,
 	VIDEO_X2R10G10B10,
+	VIDEO_R8G8B8,
 };
+
+/* Store a packed 0xRRGGBB pixel in the framebuffer's native byte order. */
+static inline void video_set_pixel24(void *dst, u32 value)
+{
+	u8 *pixel = dst;
+
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	pixel[0] = value >> 16;
+	pixel[1] = value >> 8;
+	pixel[2] = value;
+#else
+	pixel[0] = value;
+	pixel[1] = value >> 8;
+	pixel[2] = value >> 16;
+#endif
+}
 
 /**
  * struct video_priv - Device information used by the video uclass

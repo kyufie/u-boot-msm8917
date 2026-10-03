@@ -219,6 +219,16 @@ static int console_truetype_set_row(struct udevice *dev, uint row, int clr)
 		}
 		break;
 	}
+	case VIDEO_BPP24: {
+		u8 *dst = line;
+		u8 *last = end;
+
+		if (IS_ENABLED(CONFIG_VIDEO_BPP24)) {
+			for (; dst < last; dst += 3)
+				video_set_pixel24(dst, clr);
+		}
+		break;
+	}
 	case VIDEO_BPP32: {
 		u32 *dst = line;
 
@@ -390,6 +400,31 @@ static int console_truetype_putc_xy(struct udevice *dev, uint x, uint y,
 					else
 						*dst++ &= out;
 					bits++;
+				}
+				end = dst;
+			}
+			break;
+		}
+		case VIDEO_BPP24: {
+			u8 *dst = line + xoff * 3;
+			int i;
+
+			if (IS_ENABLED(CONFIG_VIDEO_BPP24)) {
+				for (i = 0; i < width; i++) {
+					int val = *bits++;
+
+					if (vid_priv->colour_bg)
+						val = 255 - val;
+					if (vid_priv->colour_fg) {
+						dst[0] |= val;
+						dst[1] |= val;
+						dst[2] |= val;
+					} else {
+						dst[0] &= val;
+						dst[1] &= val;
+						dst[2] &= val;
+					}
+					dst += 3;
 				}
 				end = dst;
 			}
@@ -991,6 +1026,26 @@ static int truetype_set_cursor_visible(struct udevice *dev, bool visible,
 						*dst++ |= out;
 					else
 						*dst++ &= out;
+				}
+			}
+			break;
+		}
+		case VIDEO_BPP24: {
+			u8 *dst = line + xoff * 3;
+			int i;
+
+			if (IS_ENABLED(CONFIG_VIDEO_BPP24)) {
+				for (i = 0; i < width; i++) {
+					if (vid_priv->colour_fg) {
+						dst[0] |= val;
+						dst[1] |= val;
+						dst[2] |= val;
+					} else {
+						dst[0] &= val;
+						dst[1] &= val;
+						dst[2] &= val;
+					}
+					dst += 3;
 				}
 			}
 			break;

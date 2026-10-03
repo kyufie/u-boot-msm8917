@@ -16,7 +16,9 @@
 static int fdt_simplefb_configure_node(void *blob, int off)
 {
 	int xsize, ysize;
-	int bpix; /* log2 of bits per pixel */
+	int bpix; /* enum video_log2_bpp selector */
+	int stride;
+	enum video_format format = VIDEO_UNKNOWN;
 	const char *name;
 	ulong fb_base;
 	struct video_uc_plat *plat;
@@ -34,6 +36,8 @@ static int fdt_simplefb_configure_node(void *blob, int off)
 		xsize = ho->xsize;
 		ysize = ho->ysize;
 		bpix = ho->bpix;
+		stride = ho->line_length;
+		format = ho->format;
 		fb_base = ho->fb;
 	} else {
 		ret = uclass_first_device_err(UCLASS_VIDEO, &dev);
@@ -44,14 +48,21 @@ static int fdt_simplefb_configure_node(void *blob, int off)
 		xsize = uc_priv->xsize;
 		ysize = uc_priv->ysize;
 		bpix = uc_priv->bpix;
+		stride = uc_priv->line_length;
+		format = uc_priv->format;
 		fb_base = plat->base;
 	}
 
 	switch (bpix) {
-	case 4: /* VIDEO_BPP16 */
+	case VIDEO_BPP16:
 		name = "r5g6b5";
 		break;
-	case 5: /* VIDEO_BPP32 */
+	case VIDEO_BPP24:
+		if (format != VIDEO_R8G8B8)
+			return -EINVAL;
+		name = "r8g8b8";
+		break;
+	case VIDEO_BPP32:
 		name = "a8r8g8b8";
 		break;
 	default:
@@ -59,7 +70,7 @@ static int fdt_simplefb_configure_node(void *blob, int off)
 	}
 
 	return fdt_setup_simplefb_node(blob, off, fb_base, xsize, ysize,
-				       xsize * VNBYTES(bpix), name);
+				       stride ? stride : xsize * VNBYTES(bpix), name);
 }
 
 int fdt_simplefb_add_node(void *blob)

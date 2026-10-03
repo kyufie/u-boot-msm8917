@@ -204,10 +204,10 @@ static int copy_to_texture(void *lcd_base)
 	}
 
 	/*
-	 * We only support copying from an 8bpp to a 32bpp texture since the
-	 * other cases are supported directly by the texture.
+	 * Convert 8bpp and 24bpp sources to the 32bpp texture. Other cases are
+	 * supported directly by the texture.
 	 */
-	if (sdl.depth != 32 && sdl.src_depth != 8) {
+	if (sdl.depth != 32 || (sdl.src_depth != 8 && sdl.src_depth != 24)) {
 		printf("Need depth 32bpp for copy\n");
 		return -EINVAL;
 	}
@@ -226,10 +226,17 @@ static int copy_to_texture(void *lcd_base)
 		dest = pixels + y * pitch;
 		src = lcd_base + src_pitch * y;
 		for (x = 0; x < sdl.width; x++, dest += 4) {
-			val = *src++;
-			dest[0] = val;
-			dest[1] = val;
-			dest[2] = val;
+			if (sdl.src_depth == 24) {
+				dest[0] = src[0];
+				dest[1] = src[1];
+				dest[2] = src[2];
+				src += 3;
+			} else {
+				val = *src++;
+				dest[0] = val;
+				dest[1] = val;
+				dest[2] = val;
+			}
 			dest[3] = 0;
 		}
 	}
