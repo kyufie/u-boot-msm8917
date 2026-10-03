@@ -46,6 +46,55 @@ static int dm_test_video_base(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_video_base, UTF_SCAN_PDATA | UTF_SCAN_FDT);
 
+/* Check 24bpp pixels use three bytes and leave padded scanline bytes alone */
+static int dm_test_video_24bpp(struct unit_test_state *uts)
+{
+	struct video_priv *priv;
+	struct udevice *dev;
+	u8 *fb;
+	int stride;
+
+	ut_assertok(uclass_find_first_device(UCLASS_VIDEO, &dev));
+	ut_assertok(sandbox_sdl_set_bpp(dev, VIDEO_BPP24));
+	priv = dev_get_uclass_priv(dev);
+	ut_asserteq(24, VNBITS(priv->bpix));
+	ut_asserteq(3, VNBYTES(priv->bpix));
+
+	/* Simulate a hardware framebuffer whose scanlines have one padding byte */
+	stride = priv->xsize * 3 + 1;
+	priv->line_length = stride;
+	priv->fb_size = stride * priv->ysize;
+	fb = priv->fb;
+	memset(fb, 0xa5, priv->fb_size);
+	ut_assertok(video_fill(dev, 0x112233));
+
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	ut_asserteq(0x11, fb[0]);
+	ut_asserteq(0x22, fb[1]);
+	ut_asserteq(0x33, fb[2]);
+#else
+	ut_asserteq(0x33, fb[0]);
+	ut_asserteq(0x22, fb[1]);
+	ut_asserteq(0x11, fb[2]);
+#endif
+	ut_asserteq(0xa5, fb[stride - 1]);
+	ut_asserteq(0xa5, fb[stride * 2 - 1]);
+
+	ut_assertok(video_fill_part(dev, 1, 1, 2, 2, 0xaabbcc));
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	ut_asserteq(0xaa, fb[stride + 3]);
+	ut_asserteq(0xbb, fb[stride + 4]);
+	ut_asserteq(0xcc, fb[stride + 5]);
+#else
+	ut_asserteq(0xcc, fb[stride + 3]);
+	ut_asserteq(0xbb, fb[stride + 4]);
+	ut_asserteq(0xaa, fb[stride + 5]);
+#endif
+
+	return 0;
+}
+DM_TEST(dm_test_video_24bpp, UTF_SCAN_PDATA | UTF_SCAN_FDT);
+
 int video_compress_fb(struct unit_test_state *uts, struct udevice *dev,
 		      bool use_copy)
 {
