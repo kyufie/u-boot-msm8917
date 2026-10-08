@@ -79,7 +79,7 @@ cvbs:
 
 	/* Move the framebuffer to the end of addressable ram */
 	meson_fb.fb_size = ALIGN(meson_fb.xsize * meson_fb.ysize *
-				 ((1 << VPU_MAX_LOG2_BPP) / 8) +
+				 VNBYTES(VPU_MAX_LOG2_BPP) +
 				 MESON_VPU_OVERSCAN, EFI_PAGE_SIZE);
 	meson_fb.base = gd->dram[0].start +
 			gd->dram[0].size - meson_fb.fb_size;
@@ -141,7 +141,7 @@ static int meson_vpu_bind(struct udevice *dev)
 	struct video_uc_plat *plat = dev_get_uclass_plat(dev);
 
 	plat->size = VPU_MAX_WIDTH * VPU_MAX_HEIGHT *
-		(1 << VPU_MAX_LOG2_BPP) / 8;
+		VNBYTES(VPU_MAX_LOG2_BPP);
 
 	return 0;
 }

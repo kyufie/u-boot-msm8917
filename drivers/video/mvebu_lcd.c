@@ -576,7 +576,7 @@ static int mvebu_video_bind(struct udevice *dev)
 	struct video_uc_plat *plat = dev_get_uclass_plat(dev);
 
 	plat->size = LCD_MAX_WIDTH * LCD_MAX_HEIGHT *
-		(1 << LCD_MAX_LOG2_BPP) / 8;
+		VNBYTES(LCD_MAX_LOG2_BPP);
 
 	return 0;
 }

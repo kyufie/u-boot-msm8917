@@ -69,7 +69,7 @@ static void atmel_fb_init(ulong addr, struct display_timing *timing, int bpix,
 
 	/* ...set frame size and burst length = 8 words (?) */
 	value = (timing->hactive.typ * timing->vactive.typ *
-		 (1 << bpix)) / 32;
+		 VNBITS(bpix)) / 32;
 	value |= ((ATMEL_LCDC_DMA_BURST_LEN - 1) << ATMEL_LCDC_BLENGTH_OFFSET);
 	lcdc_writel(reg, ATMEL_LCDC_DMAFRMCFG, value);
 
@@ -187,7 +187,7 @@ static int atmel_fb_lcd_bind(struct udevice *dev)
 	struct video_uc_plat *uc_plat = dev_get_uclass_plat(dev);
 
 	uc_plat->size = LCD_MAX_WIDTH * LCD_MAX_HEIGHT *
-			(1 << VIDEO_BPP16) / 8;
+			VNBYTES(VIDEO_BPP16);
 	debug("%s: Frame buffer size %x\n", __func__, uc_plat->size);
 
 	return 0;

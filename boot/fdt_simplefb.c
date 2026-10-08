@@ -59,7 +59,7 @@ static int fdt_simplefb_configure_node(void *blob, int off)
 	}
 
 	return fdt_setup_simplefb_node(blob, off, fb_base, xsize, ysize,
-				       xsize * (1 << bpix) / 8, name);
+				       xsize * VNBYTES(bpix), name);
 }
 
 int fdt_simplefb_add_node(void *blob)

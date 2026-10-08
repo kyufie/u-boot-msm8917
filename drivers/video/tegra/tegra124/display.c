@@ -448,7 +448,7 @@ static int tegra124_lcd_init(struct udevice *dev, void *lcdbase,
 	reset_set_enable(PERIPH_ID_DPAUX, 0);
 	reset_set_enable(PERIPH_ID_SOR0, 0);
 
-	ret = display_init(dev, lcdbase, 1 << l2bpp, &timing);
+	ret = display_init(dev, lcdbase, VNBITS(l2bpp), &timing);
 	if (ret)
 		return ret;
 
@@ -484,7 +484,7 @@ static int tegra124_lcd_bind(struct udevice *dev)
 	struct video_uc_plat *uc_plat = dev_get_uclass_plat(dev);
 
 	uc_plat->size = LCD_MAX_WIDTH * LCD_MAX_HEIGHT *
-			(1 << VIDEO_BPP16) / 8;
+			VNBYTES(VIDEO_BPP16);
 	debug("%s: Frame buffer size %x\n", __func__, uc_plat->size);
 
 	return 0;

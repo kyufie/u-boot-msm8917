@@ -381,9 +381,9 @@ static int rk_display_init(struct udevice *dev, ulong fbbase, ofnode ep_node)
 		return ret;
 	}
 
-	rkvop_enable(dev, fbbase, 1 << l2bpp, &timing, &dclk_rst);
+	rkvop_enable(dev, fbbase, VNBITS(l2bpp), &timing, &dclk_rst);
 
-	ret = display_enable(disp, 1 << l2bpp, &timing);
+	ret = display_enable(disp, VNBITS(l2bpp), &timing);
 	if (ret)
 		return ret;
 

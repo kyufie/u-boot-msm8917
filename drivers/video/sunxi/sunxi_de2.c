@@ -202,9 +202,9 @@ static int sunxi_de2_init(struct udevice *dev, ulong fbbase,
 	}
 
 	sunxi_de2_composer_init();
-	sunxi_de2_mode_set(mux, &timing, 1 << l2bpp, fbbase, is_composite);
+	sunxi_de2_mode_set(mux, &timing, VNBITS(l2bpp), fbbase, is_composite);
 
-	ret = display_enable(disp, 1 << l2bpp, &timing);
+	ret = display_enable(disp, VNBITS(l2bpp), &timing);
 	if (ret) {
 		debug("%s: Failed to enable display\n", __func__);
 		return ret;
@@ -218,7 +218,7 @@ static int sunxi_de2_init(struct udevice *dev, ulong fbbase,
 #ifdef CONFIG_EFI_LOADER
 	efi_add_memory_map(fbbase,
 			   timing.hactive.typ * timing.vactive.typ *
-			   (1 << l2bpp) / 8,
+			   VNBYTES(l2bpp),
 			   EFI_RESERVED_MEMORY_TYPE);
 #endif
 
@@ -279,7 +279,7 @@ static int sunxi_de2_bind(struct udevice *dev)
 	struct video_uc_plat *plat = dev_get_uclass_plat(dev);
 
 	plat->size = LCD_MAX_WIDTH * LCD_MAX_HEIGHT *
-		(1 << LCD_MAX_LOG2_BPP) / 8;
+		VNBYTES(LCD_MAX_LOG2_BPP);
 
 	return 0;
 }

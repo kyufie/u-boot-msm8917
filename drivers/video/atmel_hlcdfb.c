@@ -315,7 +315,7 @@ static int atmel_hlcdc_bind(struct udevice *dev)
 	struct video_uc_plat *uc_plat = dev_get_uclass_plat(dev);
 
 	uc_plat->size = LCD_MAX_WIDTH * LCD_MAX_HEIGHT *
-				(1 << LCD_MAX_LOG2_BPP) / 8;
+				VNBYTES(LCD_MAX_LOG2_BPP);
 
 	debug("%s: Frame buffer size %x\n", __func__, uc_plat->size);
 

@@ -278,7 +278,7 @@ static int setup_window(struct tegra_lcd_priv *priv,
 	win->out_w = priv->width;
 	win->out_h = priv->height;
 	win->phys_addr = priv->frame_buffer;
-	win->stride = priv->width * (1 << priv->log2_bpp) / 8;
+	win->stride = priv->width * VNBYTES(priv->log2_bpp);
 
 	log_debug("%s: depth = %d\n", __func__, priv->log2_bpp);
 
@@ -646,7 +646,7 @@ static int tegra_lcd_bind(struct udevice *dev)
 	struct video_uc_plat *plat = dev_get_uclass_plat(dev);
 
 	plat->size = LCD_MAX_WIDTH * LCD_MAX_HEIGHT *
-		(1 << LCD_MAX_LOG2_BPP) / 8;
+		VNBYTES(LCD_MAX_LOG2_BPP);
 
 	return dm_scan_fdt_dev(dev);
 }
