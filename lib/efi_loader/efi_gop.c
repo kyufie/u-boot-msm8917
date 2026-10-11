@@ -99,6 +99,42 @@ static __always_inline struct efi_gop_pixel efi_vid16_to_blt_col(u16 vid)
 	return blt;
 }
 
+static __always_inline struct efi_gop_pixel efi_vid24_to_blt_col(void *src)
+{
+	u8 *pixel = src;
+	struct efi_gop_pixel blt = {
+		.reserved = 0,
+	};
+
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	blt.red = pixel[0];
+	blt.green = pixel[1];
+	blt.blue = pixel[2];
+#else
+	blt.red = pixel[2];
+	blt.green = pixel[1];
+	blt.blue = pixel[0];
+#endif
+
+	return blt;
+}
+
+static __always_inline void efi_blt_col_to_vid24(void *dst,
+						 struct efi_gop_pixel *blt)
+{
+	u8 *pixel = dst;
+
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	pixel[0] = blt->red;
+	pixel[1] = blt->green;
+	pixel[2] = blt->blue;
+#else
+	pixel[0] = blt->blue;
+	pixel[1] = blt->green;
+	pixel[2] = blt->red;
+#endif
+}
+
 static __always_inline u16 efi_blt_col_to_vid16(struct efi_gop_pixel *blt)
 {
 	return (u16)(blt->red   >> 3) << 11 |
@@ -120,6 +156,7 @@ static __always_inline efi_status_t gop_blt_int(struct efi_gop *this,
 	efi_uintn_t i, j, linelen, slineoff = 0, dlineoff, swidth, dwidth;
 	u32 *fb32 = gopobj->fb;
 	u16 *fb16 = gopobj->fb;
+	u8 *fb8 = gopobj->fb;
 	struct efi_gop_pixel *buffer = __builtin_assume_aligned(bufferp, 4);
 	bool blt_to_video = (operation != EFI_BLT_VIDEO_TO_BLT_BUFFER);
 
@@ -216,6 +253,8 @@ static __always_inline efi_status_t gop_blt_int(struct efi_gop *this,
 				else if (vid_bpp == 30)
 					pix = efi_vid30_to_blt_col(fb32[
 						slineoff + j + sx]);
+				else if (vid_bpp == 24)
+					pix = efi_vid24_to_blt_col(fb8 + (slineoff + j + sx) * 3);
 				else
 					pix = efi_vid16_to_blt_col(fb16[
 						slineoff + j + sx]);
@@ -235,6 +274,8 @@ static __always_inline efi_status_t gop_blt_int(struct efi_gop *this,
 				else if (vid_bpp == 30)
 					fb32[dlineoff + j + dx] =
 						efi_blt_col_to_vid30(&pix);
+				else if (vid_bpp == 24)
+					efi_blt_col_to_vid24(fb8 + (dlineoff + j + dx) * 3, &pix);
 				else
 					fb16[dlineoff + j + dx] =
 						efi_blt_col_to_vid16(&pix);
@@ -263,6 +304,9 @@ static efi_uintn_t gop_get_bpp(struct efi_gop *this)
 		else
 			vid_bpp = 30;
 		break;
+	case VIDEO_BPP24:
+		vid_bpp = 24;
+		break;
 	case VIDEO_BPP16:
 		vid_bpp = 16;
 		break;
@@ -290,6 +334,17 @@ static efi_status_t gop_blt_video_fill(struct efi_gop *this,
 {
 	return gop_blt_int(this, buffer, EFI_BLT_VIDEO_FILL, sx, sy, dx,
 			   dy, width, height, delta, vid_bpp);
+}
+
+static efi_status_t gop_blt_buf_to_vid24(struct efi_gop *this,
+					 struct efi_gop_pixel *buffer,
+					 u32 foo, efi_uintn_t sx,
+					 efi_uintn_t sy, efi_uintn_t dx,
+					 efi_uintn_t dy, efi_uintn_t width,
+					 efi_uintn_t height, efi_uintn_t delta)
+{
+	return gop_blt_int(this, buffer, EFI_BLT_BUFFER_TO_VIDEO, sx, sy, dx,
+			   dy, width, height, delta, 24);
 }
 
 static efi_status_t gop_blt_buf_to_vid16(struct efi_gop *this,
@@ -436,6 +491,10 @@ static efi_status_t EFIAPI gop_blt(struct efi_gop *this,
 			ret = gop_blt_buf_to_vid30(this, buffer, operation, sx,
 						   sy, dx, dy, width, height,
 						   delta);
+		else if (vid_bpp == 24)
+			ret = gop_blt_buf_to_vid24(this, buffer, operation, sx,
+						   sy, dx, dy, width, height,
+						   delta);
 		else
 			ret = gop_blt_buf_to_vid16(this, buffer, operation, sx,
 						   sy, dx, dy, width, height,
@@ -494,6 +553,7 @@ efi_status_t efi_gop_register(void)
 
 	switch (bpix) {
 	case VIDEO_BPP16:
+	case VIDEO_BPP24:
 	case VIDEO_BPP32:
 		break;
 	default:
@@ -544,6 +604,8 @@ efi_status_t efi_gop_register(void)
 		} else {
 			gopobj->info.pixel_format = EFI_GOT_BGRA8;
 		}
+	} else if (bpix == VIDEO_BPP24) {
+		gopobj->info.pixel_format = EFI_GOT_BLTONLY;
 	} else {
 		gopobj->info.pixel_format = EFI_GOT_BITMASK;
 		gopobj->info.pixel_bitmask[0] = 0xf800; /* red */

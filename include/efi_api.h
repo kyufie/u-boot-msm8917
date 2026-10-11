@@ -1489,6 +1489,7 @@ struct efi_hii_config_access_protocol {
 #define EFI_GOT_RGBA8		0
 #define EFI_GOT_BGRA8		1
 #define EFI_GOT_BITMASK		2
+#define EFI_GOT_BLTONLY		3
 
 struct efi_gop_mode {
 	u32 max_mode;
