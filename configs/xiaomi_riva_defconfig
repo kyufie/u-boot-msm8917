@@ -1,0 +1,4 @@
+#include "qcom_msm8917_defconfig"
+#include <board/qualcomm/qcom-phone.config>
+
+CONFIG_DEFAULT_DEVICE_TREE="qcom/msm8917-xiaomi-riva"
